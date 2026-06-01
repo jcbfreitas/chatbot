@@ -1,27 +1,33 @@
+import { type Message as CoreMessage, generateText } from "ai";
 import { NextResponse } from "next/server";
-import { generateText, CoreMessage } from "ai";
-import { getLanguageModel } from "@/lib/ai/providers";
 import { regularPrompt } from "@/lib/ai/prompts";
+import { getLanguageModel } from "@/lib/ai/providers";
 import {
-  getUser,
   createUser,
   getChatsByUserId,
+  getMessagesByChatId,
+  getUser,
   saveChat,
   saveMessages,
-  getMessagesByChatId,
 } from "@/lib/db/queries";
 import { generateUUID } from "@/lib/utils";
 
-const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY || "DbStkTsJfpdDzNYoN3Gm2I0KvcglIvfw";
-const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || "https://api.evolution.example.com";
-const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE_NAME || "ClinicaEstetica";
+const EVOLUTION_API_KEY =
+  process.env.EVOLUTION_API_KEY || "DbStkTsJfpdDzNYoN3Gm2I0KvcglIvfw";
+const EVOLUTION_API_URL =
+  process.env.EVOLUTION_API_URL || "https://api.evolution.example.com";
+const EVOLUTION_INSTANCE =
+  process.env.EVOLUTION_INSTANCE_NAME || "ClinicaEstetica";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
 
     if (body.event !== "messages.upsert") {
-      return NextResponse.json({ status: "ignored", reason: "not messages.upsert" });
+      return NextResponse.json({
+        status: "ignored",
+        reason: "not messages.upsert",
+      });
     }
 
     const messageData = body.data?.message;
@@ -29,7 +35,10 @@ export async function POST(req: Request) {
     const fromMe = body.data?.key?.fromMe;
 
     if (!messageData || !remoteJid || fromMe) {
-      return NextResponse.json({ status: "ignored", reason: "invalid message or fromMe" });
+      return NextResponse.json({
+        status: "ignored",
+        reason: "invalid message or fromMe",
+      });
     }
 
     if (remoteJid === "status@broadcast") {
@@ -37,15 +46,13 @@ export async function POST(req: Request) {
     }
 
     const incomingText =
-      messageData.conversation ||
-      messageData.extendedTextMessage?.text ||
-      "";
+      messageData.conversation || messageData.extendedTextMessage?.text || "";
 
     if (!incomingText.trim()) {
       return NextResponse.json({ status: "ignored", reason: "empty text" });
     }
 
-    const email = `${remoteJid.split('@')[0]}@whatsapp.com`;
+    const email = `${remoteJid.split("@")[0]}@whatsapp.com`;
     let user = (await getUser(email))[0];
 
     if (!user) {
@@ -63,7 +70,7 @@ export async function POST(req: Request) {
       startingAfter: null,
       endingBefore: null,
     });
-    
+
     let chat = chatsResult.chats[0];
 
     if (!chat) {
@@ -74,7 +81,13 @@ export async function POST(req: Request) {
         title: `WhatsApp - ${remoteJid}`,
         visibility: "private",
       });
-      chat = { id: newChatId, userId: user.id, title: `WhatsApp - ${remoteJid}`, createdAt: new Date(), visibility: "private" };
+      chat = {
+        id: newChatId,
+        userId: user.id,
+        title: `WhatsApp - ${remoteJid}`,
+        createdAt: new Date(),
+        visibility: "private",
+      };
     }
 
     const incomingMessageId = generateUUID();
@@ -92,17 +105,18 @@ export async function POST(req: Request) {
     });
 
     const dbMessages = await getMessagesByChatId({ id: chat.id });
-    
+
     const coreMessages: CoreMessage[] = dbMessages.map((msg) => {
-       const textPart = (msg.parts as any[]).find(p => p.type === 'text')?.text || "";
-       return {
-         role: msg.role as "user" | "assistant",
-         content: textPart,
-       };
+      const textPart =
+        (msg.parts as any[]).find((p) => p.type === "text")?.text || "";
+      return {
+        role: msg.role as "user" | "assistant",
+        content: textPart,
+      };
     });
 
     const model = getLanguageModel("llama-3.3-70b-versatile");
-    
+
     const { text: generatedResponse } = await generateText({
       model,
       system: regularPrompt,
@@ -128,23 +142,29 @@ export async function POST(req: Request) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "apikey": EVOLUTION_API_KEY,
+        apikey: EVOLUTION_API_KEY,
       },
       body: JSON.stringify({
-        number: remoteJid.split('@')[0],
+        number: remoteJid.split("@")[0],
         text: generatedResponse,
       }),
     });
 
     if (!sendResponse.ok) {
-      console.error("Failed to send WhatsApp message:", await sendResponse.text());
+      console.error(
+        "Failed to send WhatsApp message:",
+        await sendResponse.text()
+      );
     }
 
     return NextResponse.json({ status: "success", text: generatedResponse });
   } catch (error) {
     console.error("Evolution Webhook Error:", error);
     return NextResponse.json(
-      { status: "error", message: error instanceof Error ? error.message : "Unknown error" },
+      {
+        status: "error",
+        message: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }
