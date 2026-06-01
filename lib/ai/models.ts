@@ -5,6 +5,7 @@ export const titleModel = {
   name: "Llama 3.1 8B Instant",
   provider: "groq",
   description: "Fast model for title generation",
+  gatewayOrder: ["groq"], // ← adicionar esta linha
 };
 
 export type ModelCapabilities = {
@@ -43,13 +44,15 @@ export const chatModels: ChatModel[] = [
   },
 ];
 
-export async function getCapabilities(): Promise<Record<string, ModelCapabilities>> {
+export function getCapabilities(): Promise<
+  Record<string, ModelCapabilities>
+> {
   const capabilities: Record<string, ModelCapabilities> = {
     "llama-3.3-70b-versatile": { tools: true, vision: false, reasoning: false },
     "llama-3.1-8b-instant": { tools: true, vision: false, reasoning: false },
     "mixtral-8x7b-32768": { tools: true, vision: false, reasoning: false },
   };
-  return capabilities;
+  return Promise.resolve(capabilities);
 }
 
 export const isDemo = process.env.IS_DEMO === "1";
@@ -58,11 +61,17 @@ export type GatewayModelWithCapabilities = ChatModel & {
   capabilities: ModelCapabilities;
 };
 
-export async function getAllGatewayModels(): Promise<GatewayModelWithCapabilities[]> {
+export async function getAllGatewayModels(): Promise<
+  GatewayModelWithCapabilities[]
+> {
   const caps = await getCapabilities();
-  return chatModels.map(m => ({
+  return chatModels.map((m) => ({
     ...m,
-    capabilities: caps[m.id] || { tools: false, vision: false, reasoning: false }
+    capabilities: caps[m.id] || {
+      tools: false,
+      vision: false,
+      reasoning: false,
+    },
   }));
 }
 
