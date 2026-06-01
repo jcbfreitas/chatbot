@@ -1,4 +1,4 @@
-import { type CoreMessage, generateText } from "ai";
+import { type ModelMessage, generateText } from "ai";
 import { NextResponse } from "next/server";
 import { regularPrompt } from "@/lib/ai/prompts";
 import { getLanguageModel } from "@/lib/ai/providers";
@@ -106,7 +106,7 @@ export async function POST(req: Request) {
 
     const dbMessages = await getMessagesByChatId({ id: chat.id });
 
-    const coreMessages: CoreMessage[] = dbMessages.map((msg) => {
+    const coreMessages: ModelMessage[] = dbMessages.map((msg) => {
       const textPart =
         (msg.parts as any[]).find((p) => p.type === "text")?.text || "";
       return {
