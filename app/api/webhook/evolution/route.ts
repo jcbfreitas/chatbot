@@ -1,4 +1,4 @@
-import { type Message as CoreMessage, generateText } from "ai";
+import { type CoreMessage, generateText } from "ai";
 import { NextResponse } from "next/server";
 import { regularPrompt } from "@/lib/ai/prompts";
 import { getLanguageModel } from "@/lib/ai/providers";
